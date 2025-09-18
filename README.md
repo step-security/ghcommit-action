@@ -7,10 +7,6 @@ The advantage of using `ghcommit` is that the commits will be signed by GitHub's
 GPG key and show as **Verified**. This is important for repositories that require
 signed commits.
 
-The plugin is inspired by [stefanzweifel/git-auto-commit-action](https://github.com/stefanzweifel/git-auto-commit-action)
-and uses some of the same input parameters. We expect to emulate more of its
-parameters over time and PRs providing similar functionality will be considered.
-
 ## Usage
 
 The plugin is currently implemented as a Docker style plugin. It must be run on
