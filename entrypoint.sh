@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+[[ -n "${DEBUG:-}" ]] && set -x
+
+# validate subscription status
+API_URL="https://agent.api.stepsecurity.io/v1/github/$GITHUB_REPOSITORY/actions/subscription"
+
+# Set a timeout for the curl command (3 seconds)
+RESPONSE=$(curl --max-time 3 -s -w "%{http_code}" "$API_URL" -o /dev/null) || true
+CURL_EXIT_CODE=$?
+
+# Decide based on curl exit code and HTTP status
+if [ $CURL_EXIT_CODE -ne 0 ]; then
+  echo "Timeout or API not reachable. Continuing to next step."
+elif [ "$RESPONSE" = "200" ]; then
+  :
+elif [ "$RESPONSE" = "403" ]; then
+  echo "Subscription is not valid. Reach out to support@stepsecurity.io"
+  exit 1
+else
+  echo "Timeout or API not reachable. Continuing to next step."
+fi
+
+COMMIT_MESSAGE="${1:?Missing commit_message input}"
+REPO="${2:?Missing repo input}"
+BRANCH="${3:?Missing branch input}"
+EMPTY="${4:-false}"
+read -r -a FILE_PATTERNS <<<"${5:?Missing file_pattern input}"
+
+git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+adds=()
+deletes=()
+
+while IFS= read -r -d $'\0' line; do
+  [[ -n "${DEBUG:-}" ]] && echo "line: '$line'"
+
+  # Extract the status in the tree and status in the index (first two characters)
+  index_status="${line:0:1}"
+  tree_status="${line:1:1}"
+
+  # Renamed files have status code 'R' and two filenames separated by NUL. We need to read
+  # an additional chunk (up to the next NUL) to get the new filename.
+  if [[ "$index_status" == "R" || "$tree_status" == "R" ]]; then
+    IFS= read -r -d $'\0' old_filename
+    new_filename="${line:3}"
+
+    echo "Renamed file detected:"
+    echo "Old Filename: $old_filename"
+    echo "New Filename: $new_filename"
+    echo "-----------------------------"
+    adds+=("$new_filename")
+    deletes+=("$old_filename")
+    continue
+  fi
+
+  # Extract the filename by removing the first three characters (two statuses and a whitespace)
+  filename="${line:3}"
+  echo "Filename: $filename"
+
+  # Print the parsed information, useful for debugging
+  echo "Index Status: $index_status"
+  echo "Tree Status: $tree_status"
+  echo "Filename: $filename"
+  echo "-----------------------------"
+  # https://git-scm.com/docs/git-status
+
+  # handle adds (A), modifications (M), and type changes (T):
+  [[ "$tree_status" =~ A|M|T || "$index_status" =~ A|M|T ]] && adds+=("$filename")
+
+  # handle deletes (D):
+  [[ "$tree_status" =~ D || "$index_status" =~ D ]] && deletes+=("$filename")
+
+done < <(git status -s --porcelain=v1 -z -- "${FILE_PATTERNS[@]}")
+
+if [[ "${#adds[@]}" -eq 0 && "${#deletes[@]}" -eq 0 && "$EMPTY" == "false" ]]; then
+  echo "No changes detected, exiting"
+  exit 0
+fi
+
+ghcommit_args=()
+ghcommit_args+=(-b "$BRANCH")
+ghcommit_args+=(-r "$REPO")
+ghcommit_args+=(-m "$COMMIT_MESSAGE")
+
+if [[ "$EMPTY" =~ ^(true|1|yes)$ ]]; then
+  ghcommit_args+=(--empty)
+fi
+
+ghcommit_args+=("${adds[@]/#/--add=}")
+ghcommit_args+=("${deletes[@]/#/--delete=}")
+
+[[ -n "${DEBUG:-}" ]] && echo "ghcommit args: '${ghcommit_args[*]}'"
+
+output=$(ghcommit "${ghcommit_args[@]}" 2>&1) || {
+  # Show the output on error. This is needed since the exit immediately flag is set.
+  echo "$output" 1>&2;
+  exit 1
+}
+echo "$output"
+
+commit_url=$(echo "$output" | grep "Success. New commit:" | awk '{print $NF}')
+commit_hash=$(echo "$commit_url" | awk -F '/' '{print $NF}')
+echo "commit-url=$commit_url" >> "$GITHUB_OUTPUT"
+echo "commit-hash=$commit_hash" >> "$GITHUB_OUTPUT"
