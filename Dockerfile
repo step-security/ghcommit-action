@@ -9,6 +9,7 @@ COPY --from=ghcommit /ghcommit /usr/bin/ghcommit
 RUN apk add --no-cache \
         bash \
         git-crypt \
+        curl \
         git
 
 COPY entrypoint.sh /entrypoint.sh
