@@ -1,4 +1,4 @@
-FROM golang:1.25.5-alpine3.23@sha256:26111811bc967321e7b6f852e914d14bede324cd1accb7f81811929a6a57fea9
+FROM golang:1.26rc3-alpine3.23@sha256:343c20fd6876bfb5ba9f46b0a452008b7dced3804e424ff7ada0ceadafad5c55
 
 ARG GHCOMMIT_VERSION=v0.1.77
 
