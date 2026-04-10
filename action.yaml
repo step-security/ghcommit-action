@@ -33,7 +33,7 @@ outputs:
 
 runs:
   using: "docker"
-  image: "docker://ghcr.io/step-security/ghcommit-action:v0.2.21@sha256:c10619a1636f97162ce35ce303077aedb8c67b3e3701b89d1b830adaca062685" #v0.2.21
+  image: "docker://ghcr.io/step-security/ghcommit-action:v0.2.22@sha256:ef99ba329c1503ca192718b6a8a897d1abffee64b208a673d6d32d53e89e381a" #v0.2.22
   args:
     - ${{ inputs.commit_message }}
     - ${{ inputs.repo }}
