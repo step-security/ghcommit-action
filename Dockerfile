@@ -1,6 +1,6 @@
-FROM golang:1.26-alpine3.23@sha256:c2a1f7b2095d046ae14b286b18413a05bb82c9bca9b25fe7ff5efef0f0826166
+FROM golang:1.26-alpine3.24@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
 
-ARG GHCOMMIT_VERSION=v0.1.77
+ARG GHCOMMIT_VERSION=v0.1.78
 
 # hadolint ignore=DL3018
 RUN apk add --no-cache bash git-crypt curl git jq
